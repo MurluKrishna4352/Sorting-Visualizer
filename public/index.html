@@ -5,8 +5,454 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sorting Visualizer</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- React CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.development.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
   <div id="root" class="flex-1"></div>
+  <script>
+    // ErrorBoundary Component
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+      }
+      static getDerivedStateFromError(error) {
+        return { hasError: true };
+      }
+      componentDidCatch(error, info) {
+        // Log error
+      }
+      render() {
+        if (this.state.hasError) {
+          return React.createElement('div', {className: 'p-4 bg-red-100 text-red-700 rounded'}, 'Something went wrong. Please refresh.');
+        }
+        return this.props.children;
+      }
+    }
+
+    // Sorting Algorithms
+    // Each returns an array of steps: { array, highlights }
+    function bubbleSort(arr) {
+      const steps = [];
+      let a = arr.slice();
+      for (let i = 0; i < a.length; i++) {
+        for (let j = 0; j < a.length - i - 1; j++) {
+          steps.push({ array: a.slice(), highlights: [j, j+1], type: 'compare' });
+          if (a[j] > a[j+1]) {
+            [a[j], a[j+1]] = [a[j+1], a[j]];
+            steps.push({ array: a.slice(), highlights: [j, j+1], type: 'swap' });
+          }
+        }
+      }
+      steps.push({ array: a.slice(), highlights: [], type: 'done' });
+      return steps;
+    }
+    function selectionSort(arr) {
+      const steps = [];
+      let a = arr.slice();
+      for (let i = 0; i < a.length; i++) {
+        let minIdx = i;
+        for (let j = i+1; j < a.length; j++) {
+          steps.push({ array: a.slice(), highlights: [minIdx, j], type: 'compare' });
+          if (a[j] < a[minIdx]) minIdx = j;
+        }
+        if (minIdx !== i) {
+          [a[i], a[minIdx]] = [a[minIdx], a[i]];
+          steps.push({ array: a.slice(), highlights: [i, minIdx], type: 'swap' });
+        }
+      }
+      steps.push({ array: a.slice(), highlights: [], type: 'done' });
+      return steps;
+    }
+    function insertionSort(arr) {
+      const steps = [];
+      let a = arr.slice();
+      for (let i = 1; i < a.length; i++) {
+        let key = a[i];
+        let j = i - 1;
+        while (j >= 0 && a[j] > key) {
+          steps.push({ array: a.slice(), highlights: [j, j+1], type: 'compare' });
+          a[j+1] = a[j];
+          steps.push({ array: a.slice(), highlights: [j, j+1], type: 'swap' });
+          j--;
+        }
+        a[j+1] = key;
+        steps.push({ array: a.slice(), highlights: [j+1], type: 'insert' });
+      }
+      steps.push({ array: a.slice(), highlights: [], type: 'done' });
+      return steps;
+    }
+    function mergeSort(arr) {
+      const steps = [];
+      function merge(a, l, m, r) {
+        let left = a.slice(l, m+1);
+        let right = a.slice(m+1, r+1);
+        let i = 0, j = 0, k = l;
+        while (i < left.length && j < right.length) {
+          steps.push({ array: a.slice(), highlights: [k], type: 'compare' });
+          if (left[i] <= right[j]) {
+            a[k++] = left[i++];
+          } else {
+            a[k++] = right[j++];
+          }
+          steps.push({ array: a.slice(), highlights: [k-1], type: 'merge' });
+        }
+        while (i < left.length) {
+          a[k++] = left[i++];
+          steps.push({ array: a.slice(), highlights: [k-1], type: 'merge' });
+        }
+        while (j < right.length) {
+          a[k++] = right[j++];
+          steps.push({ array: a.slice(), highlights: [k-1], type: 'merge' });
+        }
+      }
+      function sort(a, l, r) {
+        if (l < r) {
+          let m = Math.floor((l + r) / 2);
+          sort(a, l, m);
+          sort(a, m+1, r);
+          merge(a, l, m, r);
+        }
+      }
+      let a = arr.slice();
+      sort(a, 0, a.length-1);
+      steps.push({ array: a.slice(), highlights: [], type: 'done' });
+      return steps;
+    }
+    function quickSort(arr) {
+      const steps = [];
+      function sort(a, l, r) {
+        if (l < r) {
+          let pivot = a[r];
+          let i = l;
+          for (let j = l; j < r; j++) {
+            steps.push({ array: a.slice(), highlights: [j, r], type: 'compare' });
+            if (a[j] < pivot) {
+              [a[i], a[j]] = [a[j], a[i]];
+              steps.push({ array: a.slice(), highlights: [i, j], type: 'swap' });
+              i++;
+            }
+          }
+          [a[i], a[r]] = [a[r], a[i]];
+          steps.push({ array: a.slice(), highlights: [i, r], type: 'swap' });
+          sort(a, l, i-1);
+          sort(a, i+1, r);
+        }
+      }
+      let a = arr.slice();
+      sort(a, 0, a.length-1);
+      steps.push({ array: a.slice(), highlights: [], type: 'done' });
+      return steps;
+    }
+    const ALGORITHMS = {
+      'Bubble Sort': {
+        fn: bubbleSort,
+        description: 'Bubble Sort repeatedly steps through the list, compares adjacent elements and swaps them if they are in the wrong order.',
+        complexity: {
+          best: 'O(n)',
+          average: 'O(n²)',
+          worst: 'O(n²)',
+          space: 'O(1)'
+        }
+      },
+      'Selection Sort': {
+        fn: selectionSort,
+        description: 'Selection Sort repeatedly finds the minimum element from unsorted part and puts it at the beginning.',
+        complexity: {
+          best: 'O(n²)',
+          average: 'O(n²)',
+          worst: 'O(n²)',
+          space: 'O(1)'
+        }
+      },
+      'Insertion Sort': {
+        fn: insertionSort,
+        description: 'Insertion Sort builds the sorted array one item at a time by comparing and inserting elements into their correct position.',
+        complexity: {
+          best: 'O(n)',
+          average: 'O(n²)',
+          worst: 'O(n²)',
+          space: 'O(1)'
+        }
+      },
+      'Merge Sort': {
+        fn: mergeSort,
+        description: 'Merge Sort divides the array into halves, sorts them and merges them back together.',
+        complexity: {
+          best: 'O(n log n)',
+          average: 'O(n log n)',
+          worst: 'O(n log n)',
+          space: 'O(n)'
+        }
+      },
+      'Quick Sort': {
+        fn: quickSort,
+        description: 'Quick Sort picks a pivot and partitions the array around the pivot, recursively sorting the partitions.',
+        complexity: {
+          best: 'O(n log n)',
+          average: 'O(n log n)',
+          worst: 'O(n²)',
+          space: 'O(log n)'
+        }
+      }
+    };
+
+    // Utility to generate random array
+    function generateArray(size) {
+      return Array.from({ length: size }, () => Math.floor(Math.random() * 500) + 10);
+    }
+
+    // ControlPanel Component
+    function ControlPanel({
+      algorithm, setAlgorithm,
+      arraySizeInput, setArraySizeInput,
+      arraySize, setArraySize,
+      speed, setSpeed,
+      onGenerateArray,
+      onStart, onPause, onReset,
+      isRunning, isPaused
+    }) {
+      return React.createElement('div', {className: 'flex flex-wrap gap-4 items-center justify-center p-4 bg-white rounded shadow mb-4'},
+        React.createElement('div', null,
+          React.createElement('label', {className: 'block text-sm font-medium mb-1'}, 'Algorithm'),
+          React.createElement('select', {
+            className: 'p-2 border rounded',
+            value: algorithm,
+            onChange: function(e) { setAlgorithm(e.target.value); }
+          },
+            Object.keys(ALGORITHMS).map(function(name) {
+              return React.createElement('option', {key: name, value: name}, name);
+            })
+          )
+        ),
+        React.createElement('div', null,
+          React.createElement('label', {className: 'block text-sm font-medium mb-1'}, 'Array Size'),
+          React.createElement('input', {
+            type: 'number', min: 10, max: 100, value: arraySizeInput,
+            onChange: function(e) { setArraySizeInput(e.target.value); },
+            onBlur: function(e) {
+              let val = Number(e.target.value);
+              if (isNaN(val)) val = 20;
+              val = Math.max(10, Math.min(100, val));
+              setArraySize(val);
+              setArraySizeInput(val.toString());
+            },
+            className: 'p-2 border rounded w-20'
+          })
+        ),
+        React.createElement('div', null,
+          React.createElement('label', {className: 'block text-sm font-medium mb-1'}, 'Speed (ms)'),
+          React.createElement('input', {
+            type: 'range', min: 10, max: 1000, value: speed,
+            onChange: function(e) { setSpeed(Number(e.target.value)); },
+            className: 'w-32'
+          }),
+          React.createElement('span', {className: 'ml-2 text-sm'}, speed + 'ms')
+        ),
+        React.createElement('button', {
+          className: 'px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600',
+          onClick: onGenerateArray,
+          title: 'Generate new random array'
+        }, 'New Array'),
+        React.createElement('button', {
+          className: 'px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600',
+          onClick: onStart,
+          disabled: isRunning && !isPaused,
+          title: 'Start sorting'
+        }, 'Start'),
+        React.createElement('button', {
+          className: 'px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600',
+          onClick: onPause,
+          disabled: !isRunning,
+          title: 'Pause sorting'
+        }, isPaused ? 'Resume' : 'Pause'),
+        React.createElement('button', {
+          className: 'px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600',
+          onClick: onReset,
+          title: 'Reset visualization'
+        }, 'Reset')
+      );
+    }
+
+    // AlgorithmInfo Component
+    function AlgorithmInfo({ algorithm }) {
+      const info = ALGORITHMS[algorithm];
+      return React.createElement('div', {className: 'p-4 bg-white rounded shadow mb-4'},
+        React.createElement('h2', {className: 'text-lg font-bold mb-2'}, algorithm),
+        React.createElement('p', {className: 'mb-2'}, info.description),
+        React.createElement('div', {className: 'text-sm'},
+          React.createElement('span', {className: 'font-semibold'}, 'Time Complexity:'),
+          ' Best: ' + info.complexity.best + ', Average: ' + info.complexity.average + ', Worst: ' + info.complexity.worst,
+          React.createElement('br'),
+          React.createElement('span', {className: 'font-semibold'}, 'Space Complexity:'),
+          ' ' + info.complexity.space
+        )
+      );
+    }
+
+    // SortingVisualizer Component
+    function SortingVisualizer({ array, highlights, step, totalSteps, isRunning, isPaused }) {
+      const maxVal = Math.max(...array, 1);
+      return React.createElement('div', {className: 'flex flex-col items-center'},
+        React.createElement('div', {
+          className: 'flex items-end h-64 w-full max-w-4xl mx-auto bg-gray-100 rounded p-2 overflow-x-auto',
+          style: { minHeight: '16rem' }
+        },
+          array.map(function(val, idx) {
+            var color = 'bg-blue-400';
+            if (highlights.includes(idx)) color = 'bg-red-400';
+            return React.createElement('div', {
+              key: idx,
+              className: 'mx-0.5 rounded ' + color,
+              style: {
+                height: (val / maxVal) * 100 + '%',
+                width: (100 / array.length) + '%',
+                minWidth: '6px'
+              },
+              title: val
+            });
+          })
+        ),
+        React.createElement('div', {className: 'mt-2 text-sm text-gray-700'},
+          'Step: ' + step + ' / ' + totalSteps + ' ' + (isRunning ? (isPaused ? '(Paused)' : '(Running)') : '')
+        )
+      );
+    }
+
+    // UsageGuide Component
+    function UsageGuide() {
+      return React.createElement('div', {className: 'p-4 bg-white rounded shadow mb-4'},
+        React.createElement('h2', {className: 'text-lg font-bold mb-2'}, 'How to Use'),
+        React.createElement('ul', {className: 'list-disc pl-5 text-sm'},
+          React.createElement('li', null, 'Select a sorting algorithm from the dropdown.'),
+          React.createElement('li', null, 'Adjust array size and animation speed as desired.'),
+          React.createElement('li', null, 'Click "New Array" to generate a random array.'),
+          React.createElement('li', null, 'Click "Start" to begin visualization. Pause/Resume as needed.'),
+          React.createElement('li', null, 'Reset to start over. Hover over controls for tooltips.'),
+          React.createElement('li', null, 'Bars being compared or swapped are highlighted in red.'),
+          React.createElement('li', null, 'Algorithm info is shown below the controls.')
+        )
+      );
+    }
+
+    // Main App Component
+    function App() {
+      const [algorithm, setAlgorithm] = React.useState('Bubble Sort');
+      const [arraySizeInput, setArraySizeInput] = React.useState('20');
+      const [arraySize, setArraySize] = React.useState(20);
+      const [array, setArray] = React.useState(generateArray(20));
+      const [steps, setSteps] = React.useState([]);
+      const [stepIdx, setStepIdx] = React.useState(0);
+      const [speed, setSpeed] = React.useState(500);
+      const [isRunning, setIsRunning] = React.useState(false);
+      const [isPaused, setIsPaused] = React.useState(false);
+      const timerRef = React.useRef(null);
+
+      // Generate steps when array or algorithm changes
+      React.useEffect(() => {
+        setSteps(ALGORITHMS[algorithm].fn(array));
+        setStepIdx(0);
+        setIsRunning(false);
+        setIsPaused(false);
+      }, [array, algorithm]);
+
+      // Animation effect
+      // Subtle sound effect for swap/compare
+      function playSubtleSound(type) {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = type === 'swap' ? 320 : 220;
+          gain.gain.value = 0.08;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.04);
+          osc.onended = () => ctx.close();
+        } catch (e) {}
+      }
+
+      React.useEffect(() => {
+        if (isRunning && !isPaused && stepIdx < steps.length - 1) {
+          timerRef.current = setTimeout(() => {
+            // Play subtle sound for swap or compare
+            const t = steps[stepIdx + 1]?.type;
+            if (t === 'swap' || t === 'compare') playSubtleSound(t);
+            setStepIdx(idx => idx + 1);
+          }, speed);
+        } else {
+          clearTimeout(timerRef.current);
+        }
+        return () => clearTimeout(timerRef.current);
+      }, [isRunning, isPaused, stepIdx, steps, speed]);
+
+      // Control handlers
+      const handleGenerateArray = () => {
+        setArray(generateArray(arraySize));
+      };
+      const handleStart = () => {
+        setIsRunning(true);
+        setIsPaused(false);
+      };
+      const handlePause = () => {
+        setIsPaused(paused => !paused);
+      };
+      const handleReset = () => {
+        setStepIdx(0);
+        setIsRunning(false);
+        setIsPaused(false);
+      };
+
+      // Edge case: invalid array size
+      React.useEffect(() => {
+        if (arraySize < 10 || arraySize > 100) setArraySize(20);
+      }, [arraySize]);
+
+      React.useEffect(() => {
+        setArraySizeInput(arraySize.toString());
+      }, [arraySize]);
+
+      const currentStep = steps[stepIdx] || { array, highlights: [], type: '' };
+
+      return React.createElement('div', {className: 'max-w-5xl mx-auto p-4'},
+        React.createElement('h1', {className: 'text-2xl font-bold mb-4 text-center'}, 'Sorting Visualizer'),
+        React.createElement(ErrorBoundary, null,
+          React.createElement(ControlPanel, {
+            algorithm: algorithm,
+            setAlgorithm: setAlgorithm,
+            arraySizeInput: arraySizeInput,
+            setArraySizeInput: setArraySizeInput,
+            arraySize: arraySize,
+            setArraySize: setArraySize,
+            speed: speed,
+            setSpeed: setSpeed,
+            onGenerateArray: handleGenerateArray,
+            onStart: handleStart,
+            onPause: handlePause,
+            onReset: handleReset,
+            isRunning: isRunning,
+            isPaused: isPaused
+          }),
+          React.createElement(SortingVisualizer, {
+            array: currentStep.array,
+            highlights: currentStep.highlights,
+            step: stepIdx,
+            totalSteps: steps.length - 1,
+            isRunning: isRunning,
+            isPaused: isPaused
+          }),
+          React.createElement(AlgorithmInfo, {algorithm: algorithm}),
+          React.createElement(UsageGuide, null)
+        ),
+        React.createElement('footer', {className: 'mt-8 text-center text-xs text-gray-500'}, '© 2025 Sorting Visualizer. Made with ♥ by Krishna Nagpal')
+      );
+    }
+
+    ReactDOM.render(React.createElement(App), document.getElementById('root'));
+  </script>
 </body>
 </html>
